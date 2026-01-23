@@ -1,0 +1,45 @@
+# 牛顿环项目配置文件
+
+# 图像预处理参数
+preprocessing:
+  gaussian_kernel_size: 5
+  clahe_clip_limit: 2.0
+  clahe_grid_size: 8
+  bilateral_d: 9
+  bilateral_sigma_color: 75
+  bilateral_sigma_space: 75
+
+# 检测参数
+detection:
+  # 霍夫圆检测
+  hough_dp: 1
+  hough_min_dist: 50
+  hough_param1: 50
+  hough_param2: 30
+  
+  # 边缘检测
+  canny_threshold1: 50
+  canny_threshold2: 150
+  
+  # 圆心定位
+  center_detection_method: 'gradient'  # 'gradient' 或 'hough'
+
+# 物理计算参数
+calculation:
+  wavelength: 589.3  # nm (钠光)
+  pixel_to_mm: 0.01  # 像素到毫米转换（需标定）
+  min_rings: 5       # 最少需要检测的条纹数
+  max_rings: 30      # 最多处理的条纹数
+
+# 报告生成参数
+report:
+  template: 'templates/report_template.docx'
+  language: 'zh_CN'
+  include_figures: true
+  figure_dpi: 300
+
+# 日志配置
+logging:
+  level: 'INFO'  # DEBUG, INFO, WARNING, ERROR
+  save_to_file: true
+  log_dir: 'output/logs'
