@@ -1,0 +1,35 @@
+preprocessing:
+  gaussian_kernel_size: 5
+  clahe_clip_limit: 2.0
+  clahe_grid_size: 8
+  bilateral_d: 9
+  bilateral_sigma_color: 75
+  bilateral_sigma_space: 75
+detection:
+  hough_dp: 1
+  hough_min_dist: 50
+  hough_param1: 50
+  hough_param2: 30
+  canny_threshold1: 50
+  canny_threshold2: 150
+  center_detection_method: gradient
+  profile_num_angles: 720
+  profile_smooth_window: 9
+  minima_prominence: 3.0
+  minima_distance: 8
+  min_radius_px: 10
+calculation:
+  wavelength: 589.3
+  pixel_to_mm: 0.01
+  min_rings: 5
+  max_rings: 30
+  ring_index_start: 1
+report:
+  template: templates/report_template.docx
+  language: zh_CN
+  include_figures: true
+  figure_dpi: 300
+logging:
+  level: INFO
+  save_to_file: true
+  log_dir: output/logs

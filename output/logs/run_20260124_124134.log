@@ -1,0 +1,4 @@
+2026-01-24 12:41:34,244 - NewtonRing - INFO - Loading image: NewtonRing\data\raw\ring.jpg
+2026-01-24 12:41:34,278 - NewtonRing - INFO - Detecting rings...
+2026-01-24 12:41:34,296 - NewtonRing - INFO - Center estimated by gradient: (150.39, 126.50)
+2026-01-24 12:41:34,303 - NewtonRing - ERROR - Detection failed: Detected rings (2) < min_rings (5). Try tuning config.
