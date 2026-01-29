@@ -18,6 +18,11 @@ detection:
   minima_prominence: 3.0
   minima_distance: 8
   min_radius_px: 10
+  error_analysis:
+  enabled: true
+  reference_R_mm: 1200.0
+  min_r_squared: 0.98
+  max_rel_error: 0.05
 calculation:
   wavelength: 589.3
   pixel_to_mm: 0.01

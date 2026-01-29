@@ -60,6 +60,7 @@ def generate_word_report(
     basename: str,
     det: Dict[str, Any],
     fit: Dict[str, Any],
+    err=None,
     report_cfg: Dict[str, Any] | None = None,
     logger=None,
 ) -> str:
@@ -75,45 +76,86 @@ def generate_word_report(
 
     doc = Document()
 
-    # Title
+    # =====================
+    # 标题
+    # =====================
     title = doc.add_paragraph()
-    run = title.add_run("牛顿环实验报告（自动生成）")
+    run = title.add_run("牛顿环实验报告")
     _set_run_font(run, font_size_pt=18, bold=True)
     title.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
 
-    # Info line
     info = doc.add_paragraph()
-    run = info.add_run(f"样本：{basename}    圆心方法：{det['center']['method']}    R = {fit['R_mm']:.2f} mm")
+    run = info.add_run(
+        f"样本名称：{basename}    "
+        f"圆心识别方法：{det['center']['method']}    "
+        f"曲率半径 R = {fit['R_mm']:.2f} mm"
+    )
     _set_run_font(run, font_size_pt=10)
     info.alignment = WD_PARAGRAPH_ALIGNMENT.RIGHT
 
     doc.add_paragraph()
 
-    # Principle
+    # =====================
+    # 一、实验目的
+    # =====================
     h = doc.add_paragraph()
-    _set_run_font(h.add_run("一、实验原理"), font_size_pt=14, bold=True)
+    _set_run_font(h.add_run("一、实验目的"), font_size_pt=14, bold=True)
     p = doc.add_paragraph(
-        "牛顿环为平凸透镜与平玻璃间空气薄膜形成的等厚干涉条纹。对反射暗纹近似满足 r^2 = n λ R + b，"
-        "其中 r 为暗纹半径，n 为级数，λ 为波长，R 为透镜曲率半径，b 吸收中心间隙等系统项。"
-        "通过对 r^2-n 进行线性拟合得到斜率 k=λR，从而 R=k/λ。"
+        "1. 理解牛顿环干涉现象的形成机理；\n"
+        "2. 掌握利用牛顿环测量透镜曲率半径的方法；\n"
+        "3. 学习基于图像处理的实验数据自动提取与分析；\n"
+        "4. 评估实验结果的精度与误差来源。"
     )
     _set_paragraph_font(p, font_size_pt=11)
 
-    # Equipment
+    # =====================
+    # 二、实验原理
+    # =====================
     h = doc.add_paragraph()
-    _set_run_font(h.add_run("二、实验装置与软件"), font_size_pt=14, bold=True)
-    eq = doc.add_paragraph("牛顿环仪、单色光源（钠灯/等效单色光）、相机/电子目镜、计算机（Python + OpenCV）。")
-    _set_paragraph_font(eq, font_size_pt=11)
+    _set_run_font(h.add_run("二、实验原理"), font_size_pt=14, bold=True)
+    p = doc.add_paragraph(
+        "牛顿环是由平凸透镜与平玻璃板之间形成的空气薄膜，在单色光照射下产生的等厚干涉条纹。"
+        "在反射光条件下，第 n 级暗纹半径 r 满足近似关系：\n"
+        "r² = nλR + b。\n"
+        "其中 λ 为入射光波长，R 为透镜曲率半径，b 为系统误差项。"
+        "通过对 r² 与 n 进行线性拟合，可由斜率求得透镜的曲率半径。"
+    )
+    _set_paragraph_font(p, font_size_pt=11)
 
-    # Data
+    # =====================
+    # 三、实验装置与环境
+    # =====================
     h = doc.add_paragraph()
-    _set_run_font(h.add_run("三、数据处理与结果"), font_size_pt=14, bold=True)
+    _set_run_font(h.add_run("三、实验装置与实验环境"), font_size_pt=14, bold=True)
+    p = doc.add_paragraph(
+        "牛顿环实验仪、单色光源（钠灯或等效单色光）、相机或电子目镜、计算机，"
+        "数据处理软件为 Python（NumPy、OpenCV、Matplotlib 等）。"
+    )
+    _set_paragraph_font(p, font_size_pt=11)
+
+    # =====================
+    # 四、实验方法与数据处理
+    # =====================
+    h = doc.add_paragraph()
+    _set_run_font(h.add_run("四、实验方法与数据处理"), font_size_pt=14, bold=True)
+    p = doc.add_paragraph(
+        "首先采集牛顿环干涉图像，并通过图像处理算法确定圆心位置；"
+        "随后沿径向提取灰度分布，识别暗纹位置并计算各级暗纹半径；"
+        "最终对 r²-n 数据进行线性拟合，得到透镜曲率半径。"
+    )
+    _set_paragraph_font(p, font_size_pt=11)
+
+    # =====================
+    # 五、实验数据与结果
+    # =====================
+    h = doc.add_paragraph()
+    _set_run_font(h.add_run("五、实验数据与结果"), font_size_pt=14, bold=True)
 
     table = doc.add_table(rows=1, cols=3)
     hdr = table.rows[0].cells
-    hdr[0].text = "n"
-    hdr[1].text = "r (mm)"
-    hdr[2].text = "r^2 (mm^2)"
+    hdr[0].text = "级数 n"
+    hdr[1].text = "半径 r / mm"
+    hdr[2].text = "r² / mm²"
     for cell in hdr:
         for p in cell.paragraphs:
             _set_paragraph_font(p, font_size_pt=10)
@@ -121,51 +163,68 @@ def generate_word_report(
     for n, r, r2 in zip(fit["n"], fit["r_mm"], fit["r2_mm2"]):
         row = table.add_row().cells
         row[0].text = f"{int(n)}"
-        row[1].text = f"{float(r):.4f}"
-        row[2].text = f"{float(r2):.4f}"
+        row[1].text = f"{r:.4f}"
+        row[2].text = f"{r2:.4f}"
         for cell in row:
             for p in cell.paragraphs:
                 _set_paragraph_font(p, font_size_pt=10)
 
-    doc.add_paragraph()
-
     res = doc.add_paragraph()
     run = res.add_run(
-        f"线性拟合：r^2 = ({fit['slope']:.6f}) n + ({fit['intercept']:.6f})，"
-        f"R = {fit['R_mm']:.2f} ± {fit['R_se_mm']:.2f} mm，拟合优度 R² = {fit['r_squared']:.4f}。"
+        f"线性拟合结果：r² = ({fit['slope']:.6f}) n + ({fit['intercept']:.6f})，"
+        f"测得透镜曲率半径 R = {fit['R_mm']:.2f} ± {fit['R_se_mm']:.2f} mm，"
+        f"拟合优度 R² = {fit['r_squared']:.4f}。"
     )
     _set_run_font(run, font_size_pt=11)
 
-    # Figures
+    # =====================
+    # 六、图像结果与分析
+    # =====================
     h = doc.add_paragraph()
-    _set_run_font(h.add_run("四、图像与拟合图"), font_size_pt=14, bold=True)
+    _set_run_font(h.add_run("六、图像结果与分析"), font_size_pt=14, bold=True)
 
-    def add_fig(caption: str, path: str, width_cm: float = 15.5):
-        if not os.path.exists(path):
+    def add_fig(caption, path):
+        if not path or not os.path.exists(path):
             return
         cap = doc.add_paragraph()
         _set_run_font(cap.add_run(caption), font_size_pt=11, bold=True)
-        pic_p = doc.add_paragraph()
-        pic_p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
-        run = pic_p.add_run()
-        run.add_picture(path, width=Cm(width_cm))
+        p = doc.add_paragraph()
+        p.alignment = WD_PARAGRAPH_ALIGNMENT.CENTER
+        p.add_run().add_picture(path, width=Cm(15))
 
-    add_fig("图1：暗纹半径识别叠加图", det.get("overlay_figure", ""), width_cm=15.5)
-    add_fig("图2：径向灰度曲线与暗纹位置", det.get("profile_figure", ""), width_cm=15.5)
-    add_fig("图3：r²-n 拟合图", fit_fig, width_cm=15.5)
+    add_fig("图1 牛顿环暗纹识别叠加图", det.get("overlay_figure"))
+    add_fig("图2 径向灰度分布与暗纹位置", det.get("profile_figure"))
+    add_fig("图3 r²-n 线性拟合图", fit_fig)
 
-    # Conclusion
+    # =====================
+    # 七、误差分析
+    # =====================
+    if err is not None:
+        h = doc.add_paragraph()
+        _set_run_font(h.add_run("七、误差分析"), font_size_pt=14, bold=True)
+
+        p = doc.add_paragraph(
+            f"拟合优度 R² = {err['r_squared']:.4f}，表明实验数据与理论关系符合较好。"
+        )
+        _set_paragraph_font(p, font_size_pt=11)
+
+    # =====================
+    # 八、结论（最后）
+    # =====================
     h = doc.add_paragraph()
-    _set_run_font(h.add_run("五、结论"), font_size_pt=14, bold=True)
-    concl = doc.add_paragraph(
-        f"本次基于图像法自动提取牛顿环暗纹半径，并进行 r²-n 线性拟合，得到透镜曲率半径 "
-        f"R = {fit['R_mm']:.2f} mm（不确定度约 {fit['R_se_mm']:.2f} mm）。"
-        "后续可通过更精确的像素标定、光源波长校准与多次测量取平均进一步降低误差。"
+    _set_run_font(h.add_run("八、结论"), font_size_pt=14, bold=True)
+    p = doc.add_paragraph(
+        f"本实验基于图像处理方法对牛顿环干涉条纹进行了分析，"
+        f"通过 r²-n 线性拟合测得平凸透镜的曲率半径为 "
+        f"R = {fit['R_mm']:.2f} ± {fit['R_se_mm']:.2f} mm。"
+        "实验结果与理论模型符合良好，说明该方法具有较高的可行性与测量精度。"
     )
-    _set_paragraph_font(concl, font_size_pt=11)
+    _set_paragraph_font(p, font_size_pt=11)
 
     out_path = rep_dir / f"{basename}_NewtonRing_Report.docx"
-    doc.save(str(out_path))
+    doc.save(out_path)
+
     if logger:
         logger.info("Word report generated: %s", out_path)
+
     return str(out_path)

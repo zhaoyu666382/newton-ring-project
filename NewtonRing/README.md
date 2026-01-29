@@ -1,22 +1,62 @@
-# NewtonRing - 牛顿环自动测量系统（图片法）
+# NewtonRing —— 牛顿环自动测量与误差分析系统（图片法）
 
-本项目实现「拍照/导入图片 → 自动识别牛顿环 → 自动提取暗纹半径 → 线性拟合 r²-n → 自动生成 Word 实验报告」的完整闭环。
+本项目基于图像处理与物理模型，实现牛顿环实验从**图像输入 → 自动测量 → 结果拟合 → 误差分析 → 实验报告生成**的完整自动化流程，适用于大学物理实验或相关课程设计。
 
-> 说明：本仓库中 `main.py` / `preprocess.py` / `detection.py` / `calculation.py` / `report_gen.py` 已补全为可运行版本，并优化了圆心定位与环半径提取流程。
+系统支持**单张图片自动处理**，可输出曲率半径测量结果，并自动生成包含图表与误差分析的 **Word 实验报告**。
 
 ---
 
-## 1. 环境安装（Windows + Python 3.10）
+## ✨ 功能概览
 
-**⚠️ 注意：不要使用 `requirements.txt`，请按照下面依赖逐行安装**
+**完整实验闭环：**
 
-建议先在终端中切换到 Python 3.10 环境，或者使用你自己的 Python 3.10 路径：
+1. 📷 导入或拍摄牛顿环图像
+2. 🧠 自动识别牛顿环圆心与暗纹
+3. 📏 自动提取暗环半径
+4. 📈 对 ( r^2 - n ) 进行线性拟合，计算曲率半径 ( R )
+5. 📊 **误差分析（新增）**
+
+   * r² 拟合残差分析
+   * 曲率半径绝对 / 相对误差计算（可选参考值）
+   * 残差图与 R 对比图自动生成
+6. 📝 自动生成 Word 实验报告（含图表与分析结论）
+
+---
+
+## 🧩 项目结构
+
+```
+NewtonRing/
+├─ main.py                  # 主入口
+├─ config.yaml               # 全局配置文件
+├─ data/
+│  └─ raw/                   # 原始实验图片
+├─ output/
+│  ├─ figures/               # 自动生成的图像
+│  └─ reports/               # Word 实验报告
+└─ src/
+   ├─ preprocess.py          # 图像预处理
+   ├─ detection.py           # 圆心定位 & 暗纹检测
+   ├─ calculation.py         # r²-n 拟合 & R 计算
+   ├─ error_analysis.py      # ⭐ 误差分析模块（新增）
+   └─ report_gen.py          # Word 报告生成
+```
+
+---
+
+## 🛠️ 环境配置（Windows + Python 3.10）
+
+> ⚠️ **请使用 Python 3.10，不建议使用 requirements.txt**
+
+### 1️⃣ 升级基础工具
 
 ```powershell
-# 升级 pip / setuptools / wheel
 python -m pip install --upgrade pip setuptools wheel
+```
 
-# 依赖逐行安装
+### 2️⃣ 依赖逐行安装（推荐方式）
+
+```powershell
 python -m pip install numpy==1.24.3 --only-binary=:all:
 python -m pip install scipy==1.11.2
 python -m pip install pandas==2.0.3
@@ -27,30 +67,25 @@ python -m pip install python-docx==1.1.0
 python -m pip install PyYAML==6.0.1
 ```
 
-> 💡 小提示：
->
-> * 每条命令执行完成后确认没有报错
-> * 使用 `python` 或 `python3`，保证是 **Python 3.10**
+💡 **建议**：每条命令执行完成后确认无报错。
 
 ---
 
-## 2. 运行方式
+## ▶️ 运行方式
 
-假设你在项目根目录（包含 `NewtonRing/` 文件夹）：
+假设当前路径为项目根目录（包含 `NewtonRing/`）：
 
-### 2.1 处理单张图片并生成报告（推荐）
+### 1️⃣ 标准流程（检测 + 拟合 + 报告）
 
 ```powershell
 python NewtonRing/main.py --image NewtonRing/data/raw/your_image.jpg --config NewtonRing/config.yaml
 ```
 
-* `--image`：图片路径，从 **当前目录**算起
-* `--config`：配置文件路径，通常是 `NewtonRing/config.yaml`
-* 运行后，结果会输出到 `output/` 目录
+输出内容位于 `NewtonRing/output/`。
 
 ---
 
-### 2.2 指定输出目录
+### 2️⃣ 指定输出目录
 
 ```powershell
 python NewtonRing/main.py --image NewtonRing/data/raw/your_image.jpg --config NewtonRing/config.yaml --outdir NewtonRing/output
@@ -58,7 +93,7 @@ python NewtonRing/main.py --image NewtonRing/data/raw/your_image.jpg --config Ne
 
 ---
 
-### 2.3 仅检测与拟合，不生成报告
+### 3️⃣ 不生成 Word 报告（仅分析）
 
 ```powershell
 python NewtonRing/main.py --image NewtonRing/data/raw/your_image.jpg --config NewtonRing/config.yaml --no-report
@@ -66,40 +101,94 @@ python NewtonRing/main.py --image NewtonRing/data/raw/your_image.jpg --config Ne
 
 ---
 
-### 2.4 测试其他图片
+## 📊 输出结果说明（output/）
 
-例如另一张 synthetic 图片：
+### figures/
 
-```powershell
-python NewtonRing/main.py --image NewtonRing/data/raw/synthetic.png --config NewtonRing/config.yaml
+* `*_rings_overlay.png`
+  → 检测到的圆心与暗环叠加图
+* `*_radial_profile.png`
+  → 径向灰度曲线及暗纹标注
+* `*_fit_r2_n.png`
+  → ( r^2 - n ) 线性拟合图
+* `*_residuals.png`
+  → ⭐ r² 拟合残差图（误差分析）
+* `*_R_compare.png`
+  → ⭐ 测量 R 与参考 R 对比图（如提供参考值）
+
+### reports/
+
+* `*_NewtonRing_Report.docx`
+  → 自动生成的实验报告（含误差分析章节）
+
+---
+
+## 📐 关键配置说明（config.yaml）
+
+```yaml
+calculation:
+  pixel_to_mm: 0.0125       # 像素 → mm 标定系数（必须正确）
+  wavelength: 589           # 光源波长 (nm)
+
+detection:
+  center_detection_method: hough
+  profile_num_angles: 360
+  min_rings: 6
+
+error_analysis:
+  enabled: true
+  reference_R_mm: 1200.0    # 可选：参考曲率半径（mm）
+  min_r_squared: 0.98
+  max_rel_error: 0.05
 ```
 
-> ⚠️ 如果检测环数过少或失败，可通过修改 `config.yaml` 中的 `min_rings`、`threshold`、`min_radius` / `max_radius` 调整参数。
+⚠️ **注意**：
+
+* `pixel_to_mm` 不准确会导致 R 结果无物理意义
+* 误差分析模块可独立开关，适合不同实验阶段使用
 
 ---
 
-## 3. 输出内容（output/）
+## 📉 误差分析模块说明（新增）
 
-* `figures/*_rings_overlay.png`：检测到的圆心与暗纹半径可视化叠加图
-* `figures/*_radial_profile.png`：径向平均灰度曲线 + 暗纹峰/谷标注
-* `figures/*_fit_r2_n.png`：r²-n 拟合图（用于报告）
-* `reports/*_NewtonRing_Report.docx`：自动生成的实验报告
+系统在拟合完成后，可自动进行误差分析：
+
+* **r² 残差分析**
+
+  * 均值、标准差、最大残差
+  * 判断半径提取稳定性
+* **曲率半径误差**
+
+  * 绝对误差 |ΔR|
+  * 相对误差
+* **自动生成诊断图像**
+
+  * 残差分布图
+  * R 测量值与参考值对比图
+
+分析结果可自动写入 Word 实验报告。
 
 ---
 
-## 4. 关键配置说明（config.yaml）
+## 🧪 两种常用误差分析用法
 
-* `calculation.pixel_to_mm`：像素到毫米的标定系数（**必须正确标定，否则 R 结果无意义**）
-* `calculation.wavelength`：光源波长（nm）
-* `calculation.min_rings`：最少需要检测到的暗环数
-* `detection.center_detection_method`：圆心定位方式：`hough` 或 `gradient`
-* `detection.profile_num_angles`：径向曲线采样角度数（越大越稳健，但慢）
+### 方法 A：命令行给参考值（快速测试）
+
+```bash
+python main.py --image data/raw/synthetic.png --reference-R 1200
+```
+
+单位：**mm**
 
 ---
 
-## 5. 项目结构
+### 方法 B：配置文件方式（最终交付推荐）
 
-* `src/preprocess.py`：预处理（去噪、对比度增强）
-* `src/detection.py`：圆心定位、极坐标展开、径向曲线、暗纹半径提取
-* `src/calculation.py`：r²-n 拟合与曲率半径 R 计算
-* `src/report_gen.py`：Word 报告生成（自动插入图表与表格）
+```yaml
+error_analysis:
+  enabled: true
+  reference_R_mm: 1200.0
+  min_r_squared: 0.98
+  max_rel_error: 0.05
+```
+

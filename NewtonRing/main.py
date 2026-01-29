@@ -15,6 +15,8 @@ import argparse
 from pathlib import Path
 import sys
 import yaml
+from src.error_analysis import analyze_error, save_residual_plot, save_R_comparison_plot
+
 
 from src.utils import setup_logger, ensure_dir, get_timestamp
 from src.preprocess import preprocess_image
@@ -37,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--outdir", type=str, default="output", help="Output directory.")
     ap.add_argument("--no-report", action="store_true", help="Only run detection+fit, do not generate Word report.")
     ap.add_argument("--debug", action="store_true", help="Enable debug logging.")
+    ap.add_argument("--reference-R", type=float, default=None, help="Reference curvature radius R (mm) for error analysis.")
     return ap.parse_args()
 
 
@@ -90,6 +93,36 @@ def main() -> int:
         wavelength_nm=float(cfg.get("calculation", {}).get("wavelength", 589.3)),
         ring_index_start=int(cfg.get("calculation", {}).get("ring_index_start", 1)),
     )
+        # --- Error analysis (optional) ---
+    err_cfg = cfg.get("error_analysis", {})
+    enabled = bool(err_cfg.get("enabled", True))
+
+    err = None
+    if enabled:
+        # 优先使用命令行 --reference-R，其次使用 config.yaml
+        ref_R = args.reference_R
+        if ref_R is None:
+            ref_R = err_cfg.get("reference_R_mm", None)
+
+        thresholds = {
+            "min_r_squared": err_cfg.get("min_r_squared", 0.98),
+            "max_rel_error": err_cfg.get("max_rel_error", None),
+        }
+        err = analyze_error(fit, reference_R_mm=ref_R, thresholds=thresholds)
+
+        # Save figures for report
+        fig_dir = outdir / "figures"
+        residual_path = str(fig_dir / f"{image_path.stem}_residuals.png")
+        comp_path = str(fig_dir / f"{image_path.stem}_R_compare.png")
+
+        dpi = int(cfg.get("report", {}).get("figure_dpi", 200))
+        save_residual_plot(fit, err, residual_path, dpi=dpi)
+        save_R_comparison_plot(err, comp_path, dpi=dpi)
+
+        # Put paths back to err dict so report can insert them
+        err["residual_figure"] = residual_path
+        err["R_compare_figure"] = comp_path if err.get("reference_R_mm") is not None else None
+
 
     logger.info("Fit result: slope=%.6f mm^2/idx, R=%.3f mm", fit["slope"], fit["R_mm"])
 
@@ -104,6 +137,7 @@ def main() -> int:
         basename=image_path.stem,
         det=det,
         fit=fit,
+        err=err,
         report_cfg=report_cfg,
         logger=logger,
     )
